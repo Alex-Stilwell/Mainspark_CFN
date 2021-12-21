@@ -1,0 +1,5 @@
+Resources:
+  IAMUSER1:
+    Type: 'AWS::IAM::User'
+    Properties:
+      UserName: mainspark_iam_user_one
