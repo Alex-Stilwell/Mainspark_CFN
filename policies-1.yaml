@@ -1,0 +1,25 @@
+Resources:
+  S3BUCKET:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: mainspark-bucket
+  IAMUSER:
+    Type: 'AWS::IAM::User'
+    Properties:
+      UserName: mainspark-iam-user
+  BucketPolicy:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - 's3:ListBucket'
+            Effect: Allow
+            Resource:
+              - !Join
+                - ''
+                - - 'arn:aws:s3:::'
+                  - !Ref S3BUCKET
+      PolicyName: BucketPolicy
+      Users:
+        - !Ref IAMUSER
