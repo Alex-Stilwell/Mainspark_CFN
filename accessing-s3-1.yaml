@@ -1,0 +1,49 @@
+Resources:
+  S3Bucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: mainspark-bucket
+  IamUser:
+    Type: 'AWS::IAM::User'
+    Properties:
+      UserName: mainspark-iam-user
+  BucketPolicy:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - 's3:PutObject'
+              - 's3:PutObjectAcl'
+              - 's3:GetObject'
+              - 's3:GetObjectAcl'
+              - 's3:GetObjectVersion'
+              - 's3:GetObjectVersionAcl'
+            Effect: Allow
+            Resource: 
+              - !Join
+                - ''
+                - - 'arn:aws:s3:::'
+                  - !Ref S3Bucket
+                  - '/*'
+          - Action:
+              - 's3:ListBucket'
+            Effect: Allow
+            Resource:
+              - !Join
+                - ''
+                - - 'arn:aws:s3:::'
+                  - !Ref S3Bucket
+      PolicyName: BucketPolicy
+      Users:
+        - !Ref IamUser
+  IamAccessKey:
+    Type: AWS::IAM::AccessKey
+    Properties:
+      UserName:
+        !Ref IamUser
+Outputs:
+  AccessKeyforIamAccessKey:
+    Value: !Ref IamAccessKey
+  SecretKeyforIamAccessKey:
+    Value: !GetAtt IamAccessKey.SecretAccessKey
