@@ -27,3 +27,6 @@ replay_pid*
 */gradle/*
 */gradlew*
 */.idea/*
+*/.gradle/
+
+*.lock
