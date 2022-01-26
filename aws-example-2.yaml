@@ -1,0 +1,140 @@
+Resources:
+  IamUserSecrets:
+    Type: 'AWS::IAM::User'
+    Properties:
+      UserName: mainspark-iam-user-secret
+  IamUserS3:
+    Type: 'AWS::IAM::User'
+    Properties:
+      UserName: mainspark-iam-user-s3
+  IamUserLambda:
+    Type: 'AWS::IAM::User'
+    Properties:
+      UserName: mainspark-iam-user-lambda
+  S3Bucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: mainspark-bucket
+  IamAccessKeySecrets:
+    Type: AWS::IAM::AccessKey
+    Properties:
+      UserName:
+        !Ref IamUserSecrets
+  IamAccessKeyLambda:
+    Type: AWS::IAM::AccessKey
+    Properties:
+      UserName:
+        !Ref IamUserLambda 
+  IamAccessKeyS3:
+    Type: AWS::IAM::AccessKey
+    Properties:
+      UserName:
+        !Ref IamUserS3 
+  IamSecretCredentialsStored:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub /iam/credentials/secrets/${IamUserSecrets}
+      SecretString: !Sub '{"ACCESS_KEY":"${IamAccessKeySecrets}","SECRET_KEY":"${IamAccessKeySecrets.SecretAccessKey}"}'
+  IamS3CredentialsStored:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub /iam/credentials/s3/${IamUserS3}
+      SecretString: !Sub '{"ACCESS_KEY":"${IamAccessKeyS3}","SECRET_KEY":"${IamAccessKeyS3.SecretAccessKey}"}'
+  IamLambdaCredentialsStored:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub /iam/credentials/lambda/${IamUserLambda}
+      SecretString: !Sub '{"ACCESS_KEY":"${IamAccessKeyLambda}","SECRET_KEY":"${IamAccessKeyLambda.SecretAccessKey}"}'
+  SecretPolicy:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - 'secretsmanager:GetSecretValue'
+            Effect: Allow
+            Resource:
+              - !Ref IamLambdaCredentialsStored
+              - !Ref IamS3CredentialsStored
+      PolicyName: SecretPolicy
+      Users:
+        - !Ref IamUserSecrets
+  LambdaPolicy:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - 'lambda:InvokeFunction'
+              - 'lambda:InvokeAsync'
+            Effect: Allow
+            Resource:
+              - '*'
+      PolicyName: LambdaPolicy
+      Users:
+        - !Ref IamUserLambda
+  BucketPolicyUser:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - 's3:GetObject'
+              - 's3:GetObjectAcl'
+              - 's3:GetObjectVersion'
+              - 's3:GetObjectVersionAcl'
+            Effect: Allow
+            Resource: 
+              - !Join
+                - ''
+                - - 'arn:aws:s3:::'
+                  - !Ref S3Bucket
+                  - '/*'
+          - Action:
+              - 's3:ListBucket'
+            Effect: Allow
+            Resource:
+              - !Join
+                - ''
+                - - 'arn:aws:s3:::'
+                  - !Ref S3Bucket
+      PolicyName: BucketPolicyUser
+      Users:
+        - !Ref IamUserS3
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName:
+        Fn::Sub: lambda-role
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action:
+            - sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+              - lambda.amazonaws.com
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSLambdaExecute
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+      Path: /
+  ExampleFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: nodejs12.x
+      Handler: index.handler
+      Role:
+        Fn::GetAtt:
+          - LambdaRole
+          - Arn
+      Code:
+        ZipFile: |
+          var aws = require('aws-sdk')
+          var response = require('cfn-response')
+          exports.handler = function(event, context) {
+            console.log("EVENT: \n" + JSON.stringify(event, null, 2))
+            return context.logStreamName          
+          }
+      Description: Invoke a function.
+      TracingConfig:
+        Mode: Active
